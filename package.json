@@ -11,12 +11,16 @@
     "build:win": "electron-builder --win nsis"
   },
   "devDependencies": {
-    "electron": "^33.2.1"
+    "electron": "^33.2.1",
+    "electron-builder": "^26.15.3"
   },
-  "dependencies": {},
   "build": {
     "appId": "com.paradou.pos",
     "productName": "Paradou POS Caisse",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
     "win": {
       "target": "nsis"
     },
