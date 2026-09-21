@@ -12,7 +12,7 @@ const configPath = path.join(app.getPath('userData'), 'pos-config.json');
 
 function loadConfig() {
   const defaultConfig = {
-    serverUrl: 'http://paradou.test',
+    serverUrl: process.env.SERVER_URL || 'http://127.0.0.1:8000',
     terminalCode: 'POS-CAISSE-01',
     defaultPrinter: '',
     ticketWidth: '80mm',
@@ -61,7 +61,22 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  const targetUrl = config.serverUrl || 'http://127.0.0.1:8000';
+
+  // Load the live full web application
+  mainWindow.loadURL(targetUrl).catch((err) => {
+    console.warn('Initial loadURL failed, loading offline rescue page:', err.message);
+    mainWindow.loadFile(path.join(__dirname, '../renderer/offline_retry.html'));
+  });
+
+  // Intercept failed navigations or lost connections
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc, validatedURL, isMainFrame) => {
+    // If main frame fails to load the server
+    if (isMainFrame !== false && mainWindow && !mainWindow.isDestroyed()) {
+      console.warn(`Connection failed to ${validatedURL} [${errorCode}]: ${errorDesc}`);
+      mainWindow.loadFile(path.join(__dirname, '../renderer/offline_retry.html'));
+    }
+  });
 
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -194,6 +209,25 @@ ipcMain.handle('pos:toggle-fullscreen', () => {
   const isFull = mainWindow.isFullScreen();
   mainWindow.setFullScreen(!isFull);
   return !isFull;
+});
+
+// 6. Navigation & Connection Handlers
+ipcMain.handle('pos:retry-connection', async () => {
+  if (!mainWindow) return { success: false, error: 'no_window' };
+  const config = loadConfig();
+  const targetUrl = config.serverUrl || 'http://127.0.0.1:8000';
+  try {
+    await mainWindow.loadURL(targetUrl);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('pos:open-emergency-ui', () => {
+  if (!mainWindow) return false;
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  return true;
 });
 
 // App Lifecycle

@@ -12,7 +12,9 @@ contextBridge.exposeInMainWorld('posDesktop', {
   getConfig: () => ipcRenderer.invoke('pos:get-config'),
   saveConfig: (cfg) => ipcRenderer.invoke('pos:save-config', cfg),
 
-  // 4. Window controls
+  // 4. Window controls & navigation
   toggleFullscreen: () => ipcRenderer.invoke('pos:toggle-fullscreen'),
+  retryConnection: () => ipcRenderer.invoke('pos:retry-connection'),
+  openEmergencyUI: () => ipcRenderer.invoke('pos:open-emergency-ui'),
   isDesktop: true,
 });
