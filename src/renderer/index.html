@@ -202,11 +202,193 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="btn-primary" style="background-color: #10b981;" onclick="openNewClientModal()">+ Nouveau Client</button>
         <button class="btn-secondary" onclick="selectGuestClient()">Client Passage</button>
         <button class="btn-secondary" onclick="closeClientModal()">Fermer</button>
       </div>
     </div>
   </div>
+
+    <!-- ====================================================================
+         NEW CLIENT MODAL (OFFLINE-CAPABLE)
+         ==================================================================== -->
+    <div class="modal-overlay" id="new-client-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 class="modal-title">Nouveau Client</h3>
+          <button class="icon-btn" onclick="closeNewClientModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Nom et Prénom *</label>
+            <input type="text" class="form-input" id="new-client-name" placeholder="Ex: Mourad Bouzid">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Numéro de Téléphone *</label>
+            <input type="tel" class="form-input" id="new-client-phone" placeholder="Ex: 0550 12 34 56">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Remise Client (%)</label>
+            <input type="number" class="form-input" id="new-client-discount" min="0" max="100" value="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Adresse (Optionnel)</label>
+            <input type="text" class="form-input" id="new-client-address" placeholder="Ex: Bab Ezzouar, Alger">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeNewClientModal()">Annuler</button>
+          <button class="btn-primary" onclick="saveNewClient()">Enregistrer & Sélectionner</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         GARMENT OPTIONS MODAL (COLORS, DEFECTS, STAINS, CARPET & KILO)
+         ==================================================================== -->
+    <div class="modal-overlay" id="options-modal">
+      <div class="modal-box" style="width: 580px; max-height: 90vh;">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="opt-modal-title">Options de l'article</h3>
+            <span style="font-size: 11px; color: #818cf8; font-weight: 700;" id="opt-modal-subtitle"></span>
+          </div>
+          <button class="icon-btn" onclick="closeOptionsModal()">✕</button>
+        </div>
+        <div class="modal-body" style="gap: 16px;">
+          <!-- Special Carpet Area Section -->
+          <div id="opt-carpet-section" style="display: none; background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <span class="form-label" style="color: #34d399; margin-bottom: 8px; display: block;">Dimensions Tapis (Calcul au m²)</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: center;">
+              <div>
+                <label style="font-size: 10px; color: var(--text-dim);">Longueur (m)</label>
+                <input type="number" step="0.01" class="form-input" id="opt-carpet-length" value="2.00" oninput="calculateCarpetArea()">
+              </div>
+              <div>
+                <label style="font-size: 10px; color: var(--text-dim);">Largeur (m)</label>
+                <input type="number" step="0.01" class="form-input" id="opt-carpet-width" value="1.50" oninput="calculateCarpetArea()">
+              </div>
+              <div style="text-align: center;">
+                <label style="font-size: 10px; color: var(--text-dim);">Surface Totale</label>
+                <div style="font-size: 16px; font-weight: 900; color: #34d399;" id="opt-carpet-area">3.00 m²</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Special Kilo Weight Section -->
+          <div id="opt-kilo-section" style="display: none; background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <span class="form-label" style="color: #818cf8; margin-bottom: 8px; display: block;">Linge au Poids (Kg)</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="number" step="0.1" class="form-input" id="opt-kilo-weight" value="5.0" style="font-size: 18px; font-weight: 800; width: 120px;" oninput="calculateKiloPrice()">
+              <span style="font-size: 13px; color: var(--text-muted);">Kg &times; Prix au kilo</span>
+            </div>
+          </div>
+
+          <!-- Colors Palette -->
+          <div class="form-group">
+            <span class="form-label">Couleur(s)</span>
+            <div id="opt-colors-grid" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+          </div>
+
+          <!-- Defects -->
+          <div class="form-group">
+            <span class="form-label">Défauts constatés</span>
+            <div id="opt-defects-grid" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+          </div>
+
+          <!-- Stains -->
+          <div class="form-group">
+            <span class="form-label">Taches signalées</span>
+            <div id="opt-stains-grid" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Remarques / Consignes de traitement</label>
+            <input type="text" class="form-input" id="opt-notes-input" placeholder="Ex: Délicat, bouton manquant côté gauche...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeOptionsModal()">Annuler</button>
+          <button class="btn-primary" onclick="confirmOptionsAndAddToCart()">Ajouter au Panier</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         CHECKOUT & PAYMENT MODAL
+         ==================================================================== -->
+    <div class="modal-overlay" id="checkout-modal">
+      <div class="modal-box" style="width: 520px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Règlement de la Commande</h3>
+          <button class="icon-btn" onclick="closeCheckoutModal()">✕</button>
+        </div>
+        <div class="modal-body" style="gap: 16px;">
+          <!-- Total Banner -->
+          <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.4)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="font-size: 11px; font-weight: 700; color: #a7f3d0; text-transform: uppercase;">Total à Régler</span>
+              <div style="font-size: 26px; font-weight: 900; color: white;" id="chk-total-display">0 DA</div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 11px; color: #a7f3d0;" id="chk-client-display">Client Passage</span>
+              <div style="font-size: 12px; font-weight: 700; color: #6ee7b7;" id="chk-items-count">0 pièces</div>
+            </div>
+          </div>
+
+          <!-- Received Amount & Change -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Montant Reçu (DA)</label>
+              <input type="number" class="form-input" id="chk-received-amount" style="font-size: 18px; font-weight: 800; color: #34d399;" oninput="calculateChange()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rendu Monnaie</label>
+              <div style="background: #0b1120; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; font-size: 18px; font-weight: 800; color: #fbbf24;" id="chk-change-display">0 DA</div>
+            </div>
+          </div>
+
+          <!-- Quick Cash Buttons -->
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn-secondary" onclick="setReceivedExact()">Exact</button>
+            <button type="button" class="btn-secondary" onclick="setReceivedAmount(500)">500 DA</button>
+            <button type="button" class="btn-secondary" onclick="setReceivedAmount(1000)">1 000 DA</button>
+            <button type="button" class="btn-secondary" onclick="setReceivedAmount(2000)">2 000 DA</button>
+            <button type="button" class="btn-secondary" onclick="setReceivedAmount(5000)">5 000 DA</button>
+          </div>
+
+          <!-- Payment Method -->
+          <div class="form-group">
+            <label class="form-label">Mode de Paiement</label>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-secondary active" id="pay-mode-cash" onclick="setPayMode('cash')" style="flex: 1; font-weight: 800;">💵 Espèces</button>
+              <button type="button" class="btn-secondary" id="pay-mode-card" onclick="setPayMode('card')" style="flex: 1; font-weight: 800;">💳 Carte CIB / Edahabia</button>
+              <button type="button" class="btn-secondary" id="pay-mode-credit" onclick="setPayMode('credit')" style="flex: 1; font-weight: 800;">📋 À Crédit</button>
+            </div>
+          </div>
+
+          <!-- Target Delivery Date & Express -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center;">
+            <div class="form-group">
+              <label class="form-label">Date de Retrait Prévue</label>
+              <input type="date" class="form-input" id="chk-delivery-date">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
+              <input type="checkbox" id="chk-is-express" style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
+              <label for="chk-is-express" style="font-size: 12px; font-weight: 700; color: #fbbf24; cursor: pointer;">⚡ Traitement Express</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+          <button class="btn-secondary" onclick="closeCheckoutModal()">Annuler</button>
+          <button class="btn-checkout" style="width: auto; padding: 10px 20px;" onclick="validateAndPrintFinalOrder()">
+            <span>Valider & Imprimer Ticket (F8)</span>
+            <span>🖨️</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
   <script src="js/app.js"></script>
 </body>

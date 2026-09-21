@@ -1,6 +1,7 @@
 /**
  * ==============================================================================
- * PARADOU POS DESKTOP - CORE CLIENT APPLICATION (DUAL ONLINE/OFFLINE ENGINE)
+ * PARADOU POS DESKTOP - COMPLETE BUSINESS ENGINE (JALON 3 & 4)
+ * Dual Online / Offline, Cart, Options, Kilo, Carpet, Payments & Silent Printing
  * ==============================================================================
  */
 
@@ -18,6 +19,22 @@ let catalogData = {
   services: [],
   items: [],
   clients: [],
+  rubrics: {
+    colors: [
+      'argent', 'azur', 'beige', 'blanc', 'blanc cassé', 'bleu', 'bleu ciel', 
+      'bleu marine', 'bleu turquoise', 'bordeaux', 'brun', 'châtain', 'écru', 
+      'gris', 'indigo', 'ivoire', 'jaune', 'kaki', 'marron', 'mauve', 'noir', 
+      'orange', 'rose', 'rouge', 'vert', 'vert eau', 'vert émeraude', 'vert olive', 'violet'
+    ],
+    defects: [
+      'Bouton Brisé', 'Bouton Manquant', 'Bulle', 'Col Déchiré', 'Déchiré', 
+      'Délavé', 'Manchette Déchirée', 'Marque de Repassage', 'Tissu Boulochage', 'Trou'
+    ],
+    stains: [
+      'Aliments', 'Alcool', 'Boue', 'Café', 'Eau de Javel', 'Encre', 'Graisse', 
+      'Maquillage', 'Moisissure', 'Parfum', 'Peinture', 'Rouille', 'Sang', 'Transpiration', 'Vin'
+    ],
+  },
   store_info: {
     name: 'MSK DRY PLUS',
     brand: 'PARADOU',
@@ -27,6 +44,38 @@ let catalogData = {
   },
 };
 
+const COLOR_MAP = {
+  'argent': { bg: '#c0c0c0', text: '#000000', border: '#a9a9a9' },
+  'azur': { bg: '#007fff', text: '#ffffff', border: '#005fcf' },
+  'beige': { bg: '#f5f5dc', text: '#000000', border: '#d2b48c' },
+  'blanc': { bg: '#ffffff', text: '#000000', border: '#cbd5e1' },
+  'blanc cassé': { bg: '#fcf6eb', text: '#000000', border: '#cbd5e1' },
+  'bleu': { bg: '#2563eb', text: '#ffffff', border: '#1d4ed8' },
+  'bleu ciel': { bg: '#bae6fd', text: '#000000', border: '#7dd3fc' },
+  'bleu marine': { bg: '#0f172a', text: '#ffffff', border: '#334155' },
+  'bleu turquoise': { bg: '#2dd4bf', text: '#000000', border: '#14b8a6' },
+  'bordeaux': { bg: '#991b1b', text: '#ffffff', border: '#7f1d1d' },
+  'brun': { bg: '#78350f', text: '#ffffff', border: '#451a03' },
+  'châtain': { bg: '#a16207', text: '#ffffff', border: '#78350f' },
+  'écru': { bg: '#f5f5f5', text: '#000000', border: '#e5e5e5' },
+  'gris': { bg: '#4b5563', text: '#ffffff', border: '#374151' },
+  'indigo': { bg: '#4338ca', text: '#ffffff', border: '#3730a3' },
+  'ivoire': { bg: '#fffff0', text: '#000000', border: '#fde047' },
+  'jaune': { bg: '#eab308', text: '#000000', border: '#ca8a04' },
+  'kaki': { bg: '#854d0e', text: '#ffffff', border: '#a16207' },
+  'marron': { bg: '#451a03', text: '#ffffff', border: '#291002' },
+  'mauve': { bg: '#c084fc', text: '#000000', border: '#a855f7' },
+  'noir': { bg: '#09090b', text: '#ffffff', border: '#3f3f46' },
+  'orange': { bg: '#ea580c', text: '#ffffff', border: '#c2410c' },
+  'rose': { bg: '#f472b6', text: '#ffffff', border: '#ec4899' },
+  'rouge': { bg: '#dc2626', text: '#ffffff', border: '#b91c1c' },
+  'vert': { bg: '#16a34a', text: '#ffffff', border: '#15803d' },
+  'vert émeraude': { bg: '#059669', text: '#ffffff', border: '#047857' },
+  'vert eau': { bg: '#a7f3d0', text: '#065f46', border: '#6ee7b7' },
+  'vert olive': { bg: '#65a30d', text: '#ffffff', border: '#4d7c0f' },
+  'violet': { bg: '#7c3aed', text: '#ffffff', border: '#6d28d9' },
+};
+
 let isOnline = false;
 let isSyncing = false;
 let selectedServiceId = null;
@@ -34,6 +83,23 @@ let selectedTargetId = null;
 let selectedSubcategoryId = null;
 let currentClient = { id: null, code: 'GUEST', name: 'Client Passage', discount_percent: 0 };
 let cartItems = [];
+
+// Auxiliary state for options modal
+let pendingOptionItem = null;
+let pendingOptionPrice = 0;
+let currentOptions = {
+  colors: [],
+  defects: [],
+  stains: [],
+  notes: '',
+  length: 2.0,
+  width: 1.5,
+  area: 3.0,
+  weight: 5.0,
+};
+
+// Auxiliary state for checkout modal
+let currentPaymentMode = 'cash'; // 'cash' | 'card' | 'credit'
 
 // ------------------------------------------------------------------------------
 // INITIALIZATION
@@ -54,13 +120,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Load cached catalog from local storage first for instant launch
+  // Load cached catalog from local storage for instant offline boot
   loadLocalCatalogCache();
 
   // Initial watchdog check
   await checkNetworkStatus();
 
-  // If online, refresh bootstrap from central server
+  // If online, refresh bootstrap from cloud
   if (isOnline) {
     await fetchBootstrapFromCloud();
   } else {
@@ -72,6 +138,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Update offline queue counter badge
   updateOfflineQueueBadge();
+
+  // Set default delivery date (J+2)
+  const deliveryDateInput = document.getElementById('chk-delivery-date');
+  if (deliveryDateInput) {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    deliveryDateInput.value = d.toISOString().split('T')[0];
+  }
 });
 
 // ------------------------------------------------------------------------------
@@ -100,7 +174,6 @@ async function checkNetworkStatus() {
     const pingResult = await window.posDesktop.pingCloud(appConfig.serverUrl);
     online = pingResult && pingResult.online === true;
   } else {
-    // Fallback browser fetch ping
     try {
       const res = await fetch(`${appConfig.serverUrl.replace(/\/$/, '')}/api/pos/ping`, {
         method: 'GET',
@@ -122,9 +195,8 @@ async function checkNetworkStatus() {
     watchdogPill.className = 'watchdog-pill online';
     watchdogLabel.textContent = 'EN LIGNE (CLOUD)';
 
-    // Trigger auto-sync if we just transitioned from offline to online!
     if (wasOffline) {
-      console.log('Reconnexion détectée ! Lancement de la synchronisation automatique...');
+      console.log('Reconnexion détectée ! Déclenchement de la synchronisation automatique...');
       syncPendingOfflineOrders();
     }
   } else {
@@ -164,16 +236,16 @@ async function fetchBootstrapFromCloud() {
           services: data.services || [],
           items: data.items || [],
           clients: data.clients || [],
+          rubrics: data.rubrics || catalogData.rubrics,
           store_info: data.store_info || catalogData.store_info,
         };
 
-        // Persist to local cache for offline reliability
         localStorage.setItem('pos_catalog_cache', JSON.stringify(catalogData));
         renderUI();
       }
     }
   } catch (err) {
-    console.warn('Bootstrap fetch failed, relying on local cache:', err);
+    console.warn('Bootstrap fetch failed, using local cache:', err);
     renderUI();
   }
 }
@@ -223,7 +295,7 @@ function renderServices() {
   });
 }
 
-// LEVEL 2: TARGETS & SUBCATEGORIES (Merged 1 Line)
+// LEVEL 2: TARGETS & SUBCATEGORIES
 function renderTargetsAndSubcategories() {
   const targetsGroup = document.getElementById('targets-group');
   const subcatsGroup = document.getElementById('subcats-group');
@@ -232,7 +304,6 @@ function renderTargetsAndSubcategories() {
   targetsGroup.innerHTML = '';
   subcatsGroup.innerHTML = '';
 
-  // Current selected service check (e.g. Blanchisserie or Au Kilo)
   const currentService = catalogData.services.find((s) => s.id === selectedServiceId);
   const hideTargets = currentService && (currentService.code === 'blanchisserie' || currentService.code === 'au_kilo');
 
@@ -243,7 +314,6 @@ function renderTargetsAndSubcategories() {
     document.getElementById('targets-bar').style.display = 'flex';
   }
 
-  // Render Target buttons
   catalogData.targets.forEach((t) => {
     const btn = document.createElement('button');
     btn.className = `target-btn ${selectedTargetId === t.id ? 'active' : ''}`;
@@ -257,13 +327,11 @@ function renderTargetsAndSubcategories() {
     targetsGroup.appendChild(btn);
   });
 
-  // Render Subcategories for selectedTargetId
   const availableSubcats = catalogData.subcategories.filter((sub) => sub.garment_target_id === selectedTargetId);
 
   if (availableSubcats.length > 0) {
     subcatDivider.style.display = 'block';
 
-    // "Tous" button
     const allBtn = document.createElement('button');
     allBtn.className = `subcat-btn ${selectedSubcategoryId === null ? 'active' : ''}`;
     allBtn.textContent = 'Tous';
@@ -296,11 +364,9 @@ function renderArticles() {
   grid.innerHTML = '';
 
   const filteredItems = catalogData.items.filter((item) => {
-    // Target filter
     if (selectedTargetId && item.garment_target_id !== selectedTargetId) {
       return false;
     }
-    // Subcategory filter
     if (selectedSubcategoryId !== null && item.garment_subcategory_id !== selectedSubcategoryId) {
       return false;
     }
@@ -316,18 +382,16 @@ function renderArticles() {
     const card = document.createElement('div');
     card.className = 'article-card';
 
-    // Calculate price for selected service
     let price = 0;
     if (item.prices && item.prices[selectedServiceId]) {
       price = item.prices[selectedServiceId];
     } else {
-      // Fallback service price
       const srv = catalogData.services.find((s) => s.id === selectedServiceId);
       price = srv ? parseFloat(srv.price || 0) : 0;
     }
 
     if (appConfig.pricingMode === 'wholesale') {
-      price = Math.round(price * 0.85); // 15% discount for wholesale
+      price = Math.round(price * 0.85);
     }
 
     card.innerHTML = `
@@ -335,39 +399,177 @@ function renderArticles() {
       <div class="article-price">${price} DA</div>
     `;
 
-    card.onclick = () => addItemToCart(item, price);
+    // Click opens options modal (colors, defects, stains, carpet/kilo specs)
+    card.onclick = () => openOptionsModal(item, price);
     grid.appendChild(card);
   });
 }
 
 // ------------------------------------------------------------------------------
-// CART OPERATIONS
+// OPTIONS MODAL (COLORS, DEFECTS, STAINS, CARPET & KILO)
 // ------------------------------------------------------------------------------
-function addItemToCart(item, unitPrice) {
-  const service = catalogData.services.find((s) => s.id === selectedServiceId);
-  const serviceName = service ? service.name : 'Pressing';
+function openOptionsModal(item, price) {
+  pendingOptionItem = item;
+  pendingOptionPrice = price;
 
-  // Check if item already exists in cart with same service
-  const existing = cartItems.find((ci) => ci.garment_item_id === item.id && ci.service_id === selectedServiceId);
+  const currentService = catalogData.services.find((s) => s.id === selectedServiceId);
+  const serviceName = currentService ? currentService.name : 'Pressing';
 
-  if (existing) {
-    existing.quantity += 1;
-    existing.total_price = existing.quantity * existing.unit_price;
+  document.getElementById('opt-modal-title').textContent = item.name;
+  document.getElementById('opt-modal-subtitle').textContent = `${serviceName} • Tarif de base : ${price} DA`;
+  document.getElementById('opt-notes-input').value = '';
+
+  // Reset options
+  currentOptions = {
+    colors: [],
+    defects: [],
+    stains: [],
+    notes: '',
+    length: 2.0,
+    width: 1.5,
+    area: 3.0,
+    weight: item.standard_weight ? parseFloat(item.standard_weight) : 5.0,
+  };
+
+  // Special Carpet handling
+  const isCarpet = (item.is_carpet) || (item.unit_type === 'm2') || (item.name && item.name.toLowerCase().includes('tapis'));
+  const carpetSection = document.getElementById('opt-carpet-section');
+  if (isCarpet) {
+    carpetSection.style.display = 'block';
+    calculateCarpetArea();
   } else {
-    cartItems.push({
-      garment_item_id: item.id,
-      service_id: selectedServiceId,
-      name: item.name,
-      service_name: serviceName,
-      quantity: 1,
-      unit_price: unitPrice,
-      total_price: unitPrice,
-    });
+    carpetSection.style.display = 'none';
   }
 
+  // Special Kilo handling
+  const isKilo = (currentService && (currentService.code === 'au_kilo' || currentService.name.toLowerCase().includes('kilo')));
+  const kiloSection = document.getElementById('opt-kilo-section');
+  if (isKilo) {
+    kiloSection.style.display = 'block';
+    document.getElementById('opt-kilo-weight').value = currentOptions.weight;
+  } else {
+    kiloSection.style.display = 'none';
+  }
+
+  // Render Colors Palette
+  renderOptionsBadges('opt-colors-grid', catalogData.rubrics.colors || [], 'colors', true);
+  // Render Defects
+  renderOptionsBadges('opt-defects-grid', catalogData.rubrics.defects || [], 'defects', false);
+  // Render Stains
+  renderOptionsBadges('opt-stains-grid', catalogData.rubrics.stains || [], 'stains', false);
+
+  document.getElementById('options-modal').classList.add('open');
+}
+
+function renderOptionsBadges(containerId, list, type, isColor) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  list.forEach((val) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary';
+    btn.style.padding = '4px 10px';
+    btn.style.fontSize = '12px';
+    btn.style.borderRadius = '6px';
+    btn.style.cursor = 'pointer';
+
+    if (isColor && COLOR_MAP[val.toLowerCase()]) {
+      const c = COLOR_MAP[val.toLowerCase()];
+      btn.style.backgroundColor = c.bg;
+      btn.style.color = c.text;
+      btn.style.border = `1px solid ${c.border}`;
+      btn.style.fontWeight = 'bold';
+    }
+
+    btn.textContent = val;
+
+    btn.onclick = () => {
+      const idx = currentOptions[type].indexOf(val);
+      if (idx > -1) {
+        currentOptions[type].splice(idx, 1);
+        btn.style.transform = 'scale(1)';
+        btn.style.outline = 'none';
+      } else {
+        currentOptions[type].push(val);
+        btn.style.transform = 'scale(1.05)';
+        btn.style.outline = '2px solid #6366f1';
+      }
+    };
+
+    container.appendChild(btn);
+  });
+}
+
+function calculateCarpetArea() {
+  const l = parseFloat(document.getElementById('opt-carpet-length').value) || 0;
+  const w = parseFloat(document.getElementById('opt-carpet-width').value) || 0;
+  const area = parseFloat((l * w).toFixed(2));
+  currentOptions.length = l;
+  currentOptions.width = w;
+  currentOptions.area = area;
+  document.getElementById('opt-carpet-area').textContent = `${area} m²`;
+}
+
+function calculateKiloPrice() {
+  const wt = parseFloat(document.getElementById('opt-kilo-weight').value) || 0;
+  currentOptions.weight = wt;
+}
+
+function closeOptionsModal() {
+  document.getElementById('options-modal').classList.remove('open');
+}
+
+function confirmOptionsAndAddToCart() {
+  if (!pendingOptionItem) return;
+
+  const currentService = catalogData.services.find((s) => s.id === selectedServiceId);
+  const serviceName = currentService ? currentService.name : 'Pressing';
+  currentOptions.notes = document.getElementById('opt-notes-input').value.trim();
+
+  const isCarpet = (pendingOptionItem.is_carpet) || (pendingOptionItem.unit_type === 'm2') || (pendingOptionItem.name && pendingOptionItem.name.toLowerCase().includes('tapis'));
+  const isKilo = (currentService && (currentService.code === 'au_kilo' || currentService.name.toLowerCase().includes('kilo')));
+
+  let finalUnitPrice = pendingOptionPrice;
+  let finalQty = 1;
+  let totalPrice = pendingOptionPrice;
+
+  if (isCarpet) {
+    calculateCarpetArea();
+    finalUnitPrice = pendingOptionPrice;
+    totalPrice = Math.round(pendingOptionPrice * currentOptions.area);
+  } else if (isKilo) {
+    calculateKiloPrice();
+    finalQty = currentOptions.weight;
+    totalPrice = Math.round(pendingOptionPrice * currentOptions.weight);
+  }
+
+  cartItems.push({
+    garment_item_id: pendingOptionItem.id,
+    service_id: selectedServiceId,
+    name: pendingOptionItem.name,
+    service_name: serviceName,
+    quantity: finalQty,
+    unit_price: finalUnitPrice,
+    total_price: totalPrice,
+    is_carpet: isCarpet,
+    length: isCarpet ? currentOptions.length : null,
+    width: isCarpet ? currentOptions.width : null,
+    area: isCarpet ? currentOptions.area : null,
+    weight: isKilo ? currentOptions.weight : null,
+    colors: [...currentOptions.colors],
+    defects: [...currentOptions.defects],
+    stains: [...currentOptions.stains],
+    notes: currentOptions.notes || null,
+  });
+
+  closeOptionsModal();
   renderCart();
 }
 
+// ------------------------------------------------------------------------------
+// CART OPERATIONS
+// ------------------------------------------------------------------------------
 function updateCartItemQty(index, delta) {
   if (!cartItems[index]) return;
   cartItems[index].quantity += delta;
@@ -389,7 +591,7 @@ function renderCart() {
   const countEl = document.getElementById('cart-count');
   list.innerHTML = '';
 
-  const totalPieces = cartItems.reduce((acc, ci) => acc + ci.quantity, 0);
+  const totalPieces = cartItems.reduce((acc, ci) => acc + (ci.is_carpet ? 1 : ci.quantity), 0);
   countEl.textContent = `${totalPieces} article${totalPieces > 1 ? 's' : ''}`;
 
   if (cartItems.length === 0) {
@@ -404,10 +606,32 @@ function renderCart() {
     subtotal += ci.total_price;
     const div = document.createElement('div');
     div.className = 'cart-item';
+
+    // Tags badges string
+    let tagsHtml = '';
+    if (ci.colors && ci.colors.length > 0) {
+      tagsHtml += `<span class="discount-badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">🎨 ${ci.colors.join(', ')}</span>`;
+    }
+    if (ci.defects && ci.defects.length > 0) {
+      tagsHtml += `<span class="discount-badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">⚠️ ${ci.defects.join(', ')}</span>`;
+    }
+    if (ci.stains && ci.stains.length > 0) {
+      tagsHtml += `<span class="discount-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">⚡ ${ci.stains.join(', ')}</span>`;
+    }
+    if (ci.is_carpet) {
+      tagsHtml += `<span class="discount-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">📐 ${ci.length}m &times; ${ci.width}m (${ci.area}m²)</span>`;
+    }
+    if (ci.weight) {
+      tagsHtml += `<span class="discount-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">⚖️ ${ci.weight} Kg</span>`;
+    }
+
     div.innerHTML = `
       <div class="cart-item-header">
         <span class="cart-item-name">${ci.name}</span>
         <span class="cart-item-service">${ci.service_name}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+        ${tagsHtml}
       </div>
       <div class="cart-item-controls">
         <div class="qty-controls">
@@ -442,9 +666,9 @@ function setPricingMode(mode) {
 }
 
 // ------------------------------------------------------------------------------
-// CHECKOUT, OFFLINE QUEUEING & SILENT PRINTING
+// CHECKOUT & PAYMENT MODAL
 // ------------------------------------------------------------------------------
-async function checkoutOrder() {
+function checkoutOrder() {
   if (cartItems.length === 0) {
     alert('Le panier est vide !');
     return;
@@ -453,9 +677,76 @@ async function checkoutOrder() {
   const subtotal = cartItems.reduce((acc, ci) => acc + ci.total_price, 0);
   const discountPercent = currentClient.discount_percent || 0;
   const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const total = subtotal - discountAmount;
+  const total = Math.max(0, subtotal - discountAmount);
 
-  // Generate unique UUID and sequential ticket number
+  document.getElementById('chk-total-display').textContent = `${total} DA`;
+  document.getElementById('chk-client-display').textContent = currentClient.name;
+  document.getElementById('chk-items-count').textContent = `${cartItems.length} article(s)`;
+
+  // Default received exact
+  document.getElementById('chk-received-amount').value = total;
+  calculateChange();
+
+  document.getElementById('checkout-modal').classList.add('open');
+}
+
+function closeCheckoutModal() {
+  document.getElementById('checkout-modal').classList.remove('open');
+}
+
+function calculateChange() {
+  const subtotal = cartItems.reduce((acc, ci) => acc + ci.total_price, 0);
+  const discountPercent = currentClient.discount_percent || 0;
+  const discountAmount = Math.round((subtotal * discountPercent) / 100);
+  const total = Math.max(0, subtotal - discountAmount);
+
+  const received = parseFloat(document.getElementById('chk-received-amount').value) || 0;
+  const change = Math.max(0, received - total);
+  document.getElementById('chk-change-display').textContent = `${change} DA`;
+}
+
+function setReceivedExact() {
+  const subtotal = cartItems.reduce((acc, ci) => acc + ci.total_price, 0);
+  const discountPercent = currentClient.discount_percent || 0;
+  const discountAmount = Math.round((subtotal * discountPercent) / 100);
+  const total = Math.max(0, subtotal - discountAmount);
+  document.getElementById('chk-received-amount').value = total;
+  calculateChange();
+}
+
+function setReceivedAmount(val) {
+  document.getElementById('chk-received-amount').value = val;
+  calculateChange();
+}
+
+function setPayMode(mode) {
+  currentPaymentMode = mode;
+  document.getElementById('pay-mode-cash').classList.toggle('active', mode === 'cash');
+  document.getElementById('pay-mode-card').classList.toggle('active', mode === 'card');
+  document.getElementById('pay-mode-credit').classList.toggle('active', mode === 'credit');
+
+  if (mode === 'credit') {
+    document.getElementById('chk-received-amount').value = 0;
+    calculateChange();
+  }
+}
+
+// ------------------------------------------------------------------------------
+// FINAL ORDER SUBMISSION & DUAL SYNC
+// ------------------------------------------------------------------------------
+async function validateAndPrintFinalOrder() {
+  const subtotal = cartItems.reduce((acc, ci) => acc + ci.total_price, 0);
+  const discountPercent = currentClient.discount_percent || 0;
+  const discountAmount = Math.round((subtotal * discountPercent) / 100);
+  const total = Math.max(0, subtotal - discountAmount);
+
+  const received = parseFloat(document.getElementById('chk-received-amount').value) || 0;
+  const isExpress = document.getElementById('chk-is-express').checked;
+  const targetDeliveryDate = document.getElementById('chk-delivery-date').value;
+
+  const paidAmount = currentPaymentMode === 'credit' ? 0 : Math.min(total, received);
+  const balanceAmount = Math.max(0, total - paidAmount);
+
   const orderUuid = generateUUID();
   const ticketNumber = generateLocalTicketNumber();
 
@@ -464,13 +755,17 @@ async function checkoutOrder() {
     ticket_number: ticketNumber,
     pos_terminal_code: appConfig.terminalCode,
     client_id: currentClient.id,
+    client_code: currentClient.code,
     client_name: currentClient.name,
     order_date: new Date().toISOString(),
+    target_delivery_date: targetDeliveryDate,
     total_amount: total,
-    paid_amount: total, // Default cash paid in full
-    balance_amount: 0,
+    paid_amount: paidAmount,
+    balance_amount: balanceAmount,
     discount_percent: discountPercent,
     discount_amount: discountAmount,
+    is_express: isExpress,
+    status: 'pending',
     items: cartItems.map((ci) => ({
       service_id: ci.service_id,
       garment_item_id: ci.garment_item_id,
@@ -479,28 +774,38 @@ async function checkoutOrder() {
       quantity: ci.quantity,
       unit_price: ci.unit_price,
       total_price: ci.total_price,
+      colors: ci.colors || [],
+      defects: ci.defects || [],
+      stains: ci.stains || [],
+      notes: ci.notes || null,
+      length: ci.length,
+      width: ci.width,
+      area: ci.area,
+      weight: ci.weight,
     })),
     synced: false,
     created_at: new Date().toISOString(),
   };
 
-  // 1. Save locally to offline queue first (bulletproof data persistence)
+  // 1. Save locally to offline queue (guarantees zero data loss)
   saveOrderToLocalQueue(orderData);
 
-  // 2. Trigger Silent Thermal Receipt Printing (80mm)
+  // 2. Silent Thermal Print : Customer receipt + Garment hanger tags
   printReceipt(orderData);
+  printGarmentTags(orderData);
 
-  // 3. If Online, attempt immediate sync to Cloud
+  // 3. Trigger immediate Cloud Sync if Online
   if (isOnline) {
     syncPendingOfflineOrders();
   }
 
-  // Clear cart and prepare for next customer
+  // Close modal and reset
+  closeCheckoutModal();
   clearCart();
   updateOfflineQueueBadge();
 }
 
-// Generate UUID v4
+// UUID v4 Generator
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -509,7 +814,6 @@ function generateUUID() {
   });
 }
 
-// Generate sequential ticket number with terminal prefix
 function generateLocalTicketNumber() {
   let counter = parseInt(localStorage.getItem('pos_ticket_counter') || '1000', 10) + 1;
   localStorage.setItem('pos_ticket_counter', counter.toString());
@@ -517,7 +821,7 @@ function generateLocalTicketNumber() {
   return `${prefix}-${counter}`;
 }
 
-// Offline Queue Management
+// Queue
 function getLocalOrderQueue() {
   try {
     return JSON.parse(localStorage.getItem('pos_orders_queue') || '[]');
@@ -546,7 +850,7 @@ function updateOfflineQueueBadge() {
   }
 }
 
-// Synchronize all pending orders with Cloud API
+// Auto Sync Engine
 async function syncPendingOfflineOrders() {
   const queue = getLocalOrderQueue();
   const pending = queue.filter((o) => !o.synced);
@@ -569,6 +873,8 @@ async function syncPendingOfflineOrders() {
         balance_amount: o.balance_amount,
         discount_percent: o.discount_percent,
         discount_amount: o.discount_amount,
+        target_delivery_date: o.target_delivery_date,
+        is_express: o.is_express,
         order_date: o.order_date,
         items: o.items,
       })),
@@ -586,7 +892,6 @@ async function syncPendingOfflineOrders() {
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.results) {
-        // Mark synced orders
         const syncedUuids = new Set(
           data.results.filter((r) => r.status === 'success' || r.status === 'already_synced').map((r) => r.uuid)
         );
@@ -598,11 +903,10 @@ async function syncPendingOfflineOrders() {
         });
 
         localStorage.setItem('pos_orders_queue', JSON.stringify(queue));
-        console.log(`${syncedUuids.size} commande(s) synchronisée(s) avec le Cloud.`);
       }
     }
   } catch (err) {
-    console.error('Erreur lors de la synchronisation:', err);
+    console.error('Erreur synchronisation commandes:', err);
   } finally {
     isSyncing = false;
     checkNetworkStatus();
@@ -622,19 +926,24 @@ async function manualSyncTrigger() {
 }
 
 // ------------------------------------------------------------------------------
-// SILENT THERMAL TICKET PRINTING (80mm ESC/POS)
+// SILENT THERMAL PRINTING (80mm RECEIPT & TAGS)
 // ------------------------------------------------------------------------------
 function printReceipt(order) {
   const store = catalogData.store_info;
   const dateStr = new Date(order.order_date).toLocaleString('fr-FR');
+  const deliveryStr = order.target_delivery_date ? new Date(order.target_delivery_date).toLocaleDateString('fr-FR') : 'J+2';
 
   const itemsHtml = order.items
     .map(
       (item) => `
     <tr>
-      <td style="text-align: left; padding: 2px 0;">${item.name} (${item.service_name})</td>
-      <td style="text-align: center;">${item.quantity}</td>
-      <td style="text-align: right;">${item.total_price} DA</td>
+      <td style="text-align: left; padding: 3px 0;">
+        <span style="font-weight: bold;">${item.name}</span> (${item.service_name})
+        ${item.colors && item.colors.length ? `<br><small style="color: #444;">Couleur: ${item.colors.join(', ')}</small>` : ''}
+        ${item.defects && item.defects.length ? `<br><small style="color: #666;">Défaut: ${item.defects.join(', ')}</small>` : ''}
+      </td>
+      <td style="text-align: center; vertical-align: top; padding: 3px 0;">${item.quantity}</td>
+      <td style="text-align: right; vertical-align: top; padding: 3px 0; font-weight: bold;">${item.total_price} DA</td>
     </tr>
   `
     )
@@ -665,7 +974,7 @@ function printReceipt(order) {
           padding: 6px;
           margin: 6px 0;
           text-align: center;
-          font-size: 20px;
+          font-size: 22px;
           font-weight: 900;
           letter-spacing: 2px;
         }
@@ -684,7 +993,8 @@ function printReceipt(order) {
         TICKET #${order.ticket_number}
       </div>
 
-      <div>Date: ${dateStr}</div>
+      <div>Date dépôt: ${dateStr}</div>
+      <div>Retrait prévu: <span class="bold">${deliveryStr}</span> ${order.is_express ? '⚡ [EXPRESS]' : ''}</div>
       <div>Client: <span class="bold">${order.client_name}</span></div>
       <div>Terminal: ${order.pos_terminal_code}</div>
 
@@ -705,9 +1015,9 @@ function printReceipt(order) {
 
       <div class="divider"></div>
 
-      <div class="text-right bold" style="font-size: 14px;">
-        TOTAL RÉGLÉ : ${order.total_amount} DA
-      </div>
+      <div class="text-right">Total : ${order.total_amount} DA</div>
+      <div class="text-right">Montant Réglé : ${order.paid_amount} DA</div>
+      ${order.balance_amount > 0 ? `<div class="text-right bold" style="color: #000; font-size: 14px;">RESTE À PAYER : ${order.balance_amount} DA</div>` : `<div class="text-right bold">SOLDE : ENTIÈREMENT RÉGLÉ</div>`}
 
       <div class="divider"></div>
       <div class="text-center" style="font-size: 10px; margin-top: 6px;">
@@ -720,55 +1030,64 @@ function printReceipt(order) {
 
   if (window.posDesktop && window.posDesktop.silentPrint) {
     window.posDesktop.silentPrint(receiptHtml, appConfig.defaultPrinter);
-  } else {
-    // In browser preview: open in popup or console
-    console.log('Ticket généré (Silent Print prêt) :', order.ticket_number);
   }
 }
 
-// ------------------------------------------------------------------------------
-// SETTINGS & CLIENT MODALS
-// ------------------------------------------------------------------------------
-async function openSettingsModal() {
-  document.getElementById('settings-modal').classList.add('open');
+// Thermal Hanger Tag Printing (Giant ticket number for each garment)
+function printGarmentTags(order) {
+  let tagIndex = 1;
+  const totalPieces = order.items.reduce((sum, it) => sum + (it.is_carpet ? 1 : it.quantity), 0);
 
-  // Load printer list if running in Electron Desktop
-  if (window.posDesktop && window.posDesktop.getPrinters) {
-    const printers = await window.posDesktop.getPrinters();
-    const select = document.getElementById('cfg-printer-select');
-    select.innerHTML = '<option value="">Sélectionner une imprimante thermique...</option>';
+  order.items.forEach((item) => {
+    const qty = item.is_carpet ? 1 : item.quantity;
+    for (let q = 0; q < qty; q++) {
+      const tagHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            @page { margin: 0; size: 80mm auto; }
+            body {
+              font-family: Arial, sans-serif;
+              width: 72mm;
+              margin: 0 auto;
+              padding: 8px 0;
+              text-align: center;
+              border-bottom: 2px dashed #000;
+            }
+            .giant-number {
+              font-size: 42px;
+              font-weight: 900;
+              letter-spacing: 3px;
+              margin: 4px 0;
+            }
+            .item-line { font-size: 14px; font-weight: bold; }
+            .details { font-size: 11px; margin-top: 2px; }
+          </style>
+        </head>
+        <body>
+          <div style="font-size: 12px; font-weight: bold;">PARADOU - ÉTIQUETTE CINTRE (${tagIndex}/${totalPieces})</div>
+          <div class="giant-number">${order.ticket_number}</div>
+          <div class="item-line">${item.name} - ${item.service_name}</div>
+          <div class="details">Client: ${order.client_name}</div>
+          ${item.colors && item.colors.length ? `<div class="details">Couleur: ${item.colors.join(', ')}</div>` : ''}
+          ${item.defects && item.defects.length ? `<div class="details">Défaut: ${item.defects.join(', ')}</div>` : ''}
+        </body>
+        </html>
+      `;
 
-    printers.forEach((p) => {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = `${p.displayName} ${p.isDefault ? '(Par défaut)' : ''}`;
-      if (p.name === appConfig.defaultPrinter) {
-        opt.selected = true;
+      if (window.posDesktop && window.posDesktop.silentPrint) {
+        window.posDesktop.silentPrint(tagHtml, appConfig.defaultPrinter);
       }
-      select.appendChild(opt);
-    });
-  }
+      tagIndex++;
+    }
+  });
 }
 
-function closeSettingsModal() {
-  document.getElementById('settings-modal').classList.remove('open');
-}
-
-async function saveSettings() {
-  appConfig.serverUrl = document.getElementById('cfg-server-url').value.trim();
-  appConfig.terminalCode = document.getElementById('cfg-terminal-code').value.trim();
-  appConfig.defaultPrinter = document.getElementById('cfg-printer-select').value;
-
-  document.getElementById('terminal-code-display').textContent = appConfig.terminalCode;
-
-  if (window.posDesktop && window.posDesktop.saveConfig) {
-    await window.posDesktop.saveConfig(appConfig);
-  }
-
-  closeSettingsModal();
-  checkNetworkStatus();
-}
-
+// ------------------------------------------------------------------------------
+// NEW CLIENT & SELECTION
+// ------------------------------------------------------------------------------
 function openClientModal() {
   document.getElementById('client-modal').classList.add('open');
   filterClientsList();
@@ -776,6 +1095,66 @@ function openClientModal() {
 
 function closeClientModal() {
   document.getElementById('client-modal').classList.remove('open');
+}
+
+function openNewClientModal() {
+  document.getElementById('new-client-name').value = '';
+  document.getElementById('new-client-phone').value = '';
+  document.getElementById('new-client-discount').value = '0';
+  document.getElementById('new-client-address').value = '';
+  document.getElementById('new-client-modal').classList.add('open');
+}
+
+function closeNewClientModal() {
+  document.getElementById('new-client-modal').classList.remove('open');
+}
+
+async function saveNewClient() {
+  const name = document.getElementById('new-client-name').value.trim();
+  const phone = document.getElementById('new-client-phone').value.trim();
+  const discount = parseInt(document.getElementById('new-client-discount').value, 10) || 0;
+  const address = document.getElementById('new-client-address').value.trim();
+
+  if (!name) {
+    alert('Veuillez renseigner le nom du client.');
+    return;
+  }
+
+  const localId = `LOCAL-${Date.now()}`;
+  const newClient = {
+    id: localId,
+    code: `CLI-${Math.floor(1000 + Math.random() * 9000)}`,
+    name: name,
+    phone: phone,
+    discount_percent: discount,
+    address: address,
+    credit: 0,
+  };
+
+  catalogData.clients.unshift(newClient);
+  localStorage.setItem('pos_catalog_cache', JSON.stringify(catalogData));
+
+  // Select as active client
+  currentClient = newClient;
+  document.getElementById('current-client-name').textContent = newClient.name;
+  document.getElementById('current-client-discount').textContent = `Remise ${newClient.discount_percent}%`;
+
+  closeNewClientModal();
+  closeClientModal();
+  renderCart();
+
+  // If online, immediately sync client to Cloud API
+  if (isOnline) {
+    try {
+      await fetch(`${appConfig.serverUrl.replace(/\/$/, '')}/api/pos/sync/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ clients: [newClient] }),
+      });
+    } catch (e) {
+      console.warn('Sync new client deferred:', e);
+    }
+  }
 }
 
 function filterClientsList() {
@@ -813,6 +1192,48 @@ function selectGuestClient() {
   document.getElementById('current-client-discount').textContent = 'Remise 0%';
   closeClientModal();
   renderCart();
+}
+
+// ------------------------------------------------------------------------------
+// SETTINGS MODAL
+// ------------------------------------------------------------------------------
+async function openSettingsModal() {
+  document.getElementById('settings-modal').classList.add('open');
+
+  if (window.posDesktop && window.posDesktop.getPrinters) {
+    const printers = await window.posDesktop.getPrinters();
+    const select = document.getElementById('cfg-printer-select');
+    select.innerHTML = '<option value="">Sélectionner une imprimante thermique...</option>';
+
+    printers.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = `${p.displayName} ${p.isDefault ? '(Par défaut)' : ''}`;
+      if (p.name === appConfig.defaultPrinter) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
+  }
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+async function saveSettings() {
+  appConfig.serverUrl = document.getElementById('cfg-server-url').value.trim();
+  appConfig.terminalCode = document.getElementById('cfg-terminal-code').value.trim();
+  appConfig.defaultPrinter = document.getElementById('cfg-printer-select').value;
+
+  document.getElementById('terminal-code-display').textContent = appConfig.terminalCode;
+
+  if (window.posDesktop && window.posDesktop.saveConfig) {
+    await window.posDesktop.saveConfig(appConfig);
+  }
+
+  closeSettingsModal();
+  checkNetworkStatus();
 }
 
 function toggleFullscreen() {
