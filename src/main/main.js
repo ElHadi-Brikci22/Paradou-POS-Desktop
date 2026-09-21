@@ -15,6 +15,10 @@ function loadConfig() {
     serverUrl: process.env.SERVER_URL || 'http://127.0.0.1:8000',
     terminalCode: 'POS-CAISSE-01',
     defaultPrinter: '',
+    receiptPrinter: '',
+    tagPrinter: '',
+    autoPrintReceipt: true,
+    autoPrintTags: true,
     ticketWidth: '80mm',
     kioskMode: false,
   };
