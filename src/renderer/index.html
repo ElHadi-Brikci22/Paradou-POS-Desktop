@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PARADOU POS - Caisse Tactile</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ====================================================================
+       TOP HEADER
+       ==================================================================== -->
+  <header class="pos-header">
+    <div class="brand-section">
+      <div class="brand-badge">PARADOU</div>
+      <div class="brand-title">CAISSE TACTILE</div>
+      <span class="brand-version">v2026.1 Desktop</span>
+    </div>
+
+    <div class="status-section">
+      <!-- Network Watchdog Live Pill -->
+      <div id="watchdog-pill" class="watchdog-pill online" title="Statut du serveur central Cloud">
+        <div class="status-dot"></div>
+        <span id="watchdog-label">EN LIGNE (CLOUD)</span>
+      </div>
+
+      <!-- Pending Offline Sync Badge -->
+      <div id="offline-queue-badge" class="terminal-badge" style="display: none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);">
+        <span id="offline-queue-count">0</span> en attente de synchro
+      </div>
+
+      <!-- Terminal Code -->
+      <div class="terminal-badge" id="terminal-code-display">POS-CAISSE-01</div>
+
+      <!-- Live Clock -->
+      <div class="header-clock" id="header-clock">--:--:--</div>
+
+      <!-- Settings Button -->
+      <button class="icon-btn" onclick="openSettingsModal()" title="Paramètres Caisse & Imprimante">
+        ⚙️
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button class="icon-btn" onclick="toggleFullscreen()" title="Plein Écran (F11)">
+        ⛶
+      </button>
+    </div>
+  </header>
+
+  <!-- ====================================================================
+       MAIN APPLICATION LAYOUT
+       ==================================================================== -->
+  <main class="pos-container">
+
+    <!-- LEFT: CATALOG -->
+    <section class="catalog-panel">
+
+      <!-- LEVEL 1: SERVICES -->
+      <div class="services-bar" id="services-bar">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- LEVEL 2: TARGETS & SUBCATEGORIES (Merged 1 slim row) -->
+      <div class="targets-bar" id="targets-bar">
+        <div class="targets-group" id="targets-group">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <div class="bar-divider" id="subcat-divider" style="display: none;"></div>
+
+        <div class="subcats-group" id="subcats-group">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- LEVEL 3: CONTEXT BAR (Client & Pricing) -->
+      <div class="context-bar">
+        <!-- Client button -->
+        <div class="client-selector-box">
+          <span class="context-label">Client :</span>
+          <button class="client-btn" onclick="openClientModal()">
+            <span id="current-client-name">Client Passage</span>
+            <span class="discount-badge" id="current-client-discount">Remise 0%</span>
+          </button>
+        </div>
+
+        <!-- Pricing Switch -->
+        <div class="pricing-switch">
+          <span class="context-label">Tarif :</span>
+          <div class="switch-box">
+            <button class="switch-btn active" id="btn-mode-detail" onclick="setPricingMode('detail')">Détail</button>
+            <button class="switch-btn" id="btn-mode-wholesale" onclick="setPricingMode('wholesale')">Gros</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ARTICLES GRID -->
+      <div class="catalog-scroll">
+        <div class="articles-grid" id="articles-grid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: CART & CHECKOUT -->
+    <aside class="cart-panel">
+      <div class="cart-header">
+        <div class="cart-title">
+          <span>🛒 PANIER</span>
+          <span class="cart-counter" id="cart-count">0 articles</span>
+        </div>
+        <button class="btn-secondary" style="width: auto; padding: 4px 8px;" onclick="clearCart()">Vider</button>
+      </div>
+
+      <div class="cart-items-list" id="cart-items-list">
+        <div class="cart-empty-message">Le panier est vide.<br>Sélectionnez un article à gauche.</div>
+      </div>
+
+      <div class="cart-footer">
+        <div class="summary-row">
+          <span>Sous-total :</span>
+          <span id="summary-subtotal">0 DA</span>
+        </div>
+        <div class="summary-row">
+          <span>Remise Client :</span>
+          <span id="summary-discount">0 DA</span>
+        </div>
+        <div class="total-row">
+          <span>TOTAL :</span>
+          <span id="summary-total">0 DA</span>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-checkout" onclick="checkoutOrder()">
+            <span>ENCAISSER & IMPRIMER TICKET</span>
+            <span>⚡</span>
+          </button>
+          <div class="secondary-actions">
+            <button class="btn-secondary" onclick="manualSyncTrigger()">Synchroniser Cloud 🔄</button>
+            <button class="btn-secondary" onclick="openSettingsModal()">Imprimante 🖨️</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ====================================================================
+       SETTINGS MODAL
+       ==================================================================== -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Paramètres de la Caisse</h3>
+        <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">URL du Serveur Central (Cloud Laravel)</label>
+          <input type="text" class="form-input" id="cfg-server-url" value="http://paradou.test">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Code d'Identification du Terminal</label>
+          <input type="text" class="form-input" id="cfg-terminal-code" value="POS-CAISSE-01">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Imprimante Thermique Ticket (ESC/POS 80mm)</label>
+          <select class="form-select" id="cfg-printer-select">
+            <option value="">Sélectionner une imprimante...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Actions de Synchronisation</label>
+          <button class="btn-secondary" onclick="refreshBootstrapCache()">
+            📥 Télécharger le catalogue complet depuis le Cloud
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSettingsModal()">Annuler</button>
+        <button class="btn-primary" onclick="saveSettings()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       CLIENT SELECTION MODAL
+       ==================================================================== -->
+  <div class="modal-overlay" id="client-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Sélectionner un Client</h3>
+        <button class="icon-btn" onclick="closeClientModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-input" id="client-search-input" placeholder="Rechercher par nom ou numéro de téléphone..." oninput="filterClientsList()">
+        <div id="clients-modal-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow-y: auto; margin-top: 8px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="selectGuestClient()">Client Passage</button>
+        <button class="btn-secondary" onclick="closeClientModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
